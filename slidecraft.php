@@ -17,46 +17,54 @@ function custom_slider_scripts() {
 }
 add_action('wp_enqueue_scripts', 'custom_slider_scripts');
 
+// Add custom control for slider images
+function custom_slider_customize_register($wp_customize) {
+    $wp_customize->add_section('slider_images_section', array(
+        'title' => __('Slider Images', 'slidecraft'),
+        'priority' => 30,
+    ));
+
+    for ($i = 1; $i <= 5; $i++) { // You can adjust the number of images as needed
+        $wp_customize->add_setting('slider_image_' . $i, array(
+            'capability' => 'edit_theme_options',
+        ));
+
+        $wp_customize->add_control(new WP_Customize_Image_Control($wp_customize, 'slider_image_' . $i, array(
+            'label' => __('Slider Image ' . $i, 'slidecraft'),
+            'section' => 'slider_images_section',
+            'settings' => 'slider_image_' . $i,
+        )));
+    }
+}
+add_action('customize_register', 'custom_slider_customize_register');
+
 // Shortcode function to display the slider
 function custom_slider_shortcode($atts) {
-    // Get the current page ID
-    $page_id = get_queried_object_id();
+    $images = array();
 
-    // Get the content of the current page
-    $page_content = get_post_field('post_content', $page_id);
+    // Get slider images from customizer settings
+    for ($i = 1; $i <= 5; $i++) { // Adjust the loop range accordingly
+        $image_url = get_theme_mod('slider_image_' . $i);
+        if (!empty($image_url)) {
+            $images[] = $image_url;
+        }
+    }
 
-    // Extract images from the content
-    preg_match_all('/<img[^>]+src=[\'"]([^\'"]+)[\'"][^>]*>/', $page_content, $matches);
-
-    // Check if images are found
-    if (!empty($matches[1])) {
+    if (!empty($images)) {
         $output = '<div class="custom-slider">';
         $output .= '<div class="slider-container">';
-        foreach ($matches[1] as $image_url) {
-            // Wrap the image in a div with a custom class
+        foreach ($images as $image_url) {
             $output .= '<div class="slide">';
-            $output .= '<img src="' . $image_url . '" alt="">';
+            $output .= '<img src="' . esc_url($image_url) . '" alt="">';
             $output .= '</div>';
-            // Add CSS class to hide the original image
-            $page_content = str_replace('<img src="' . $image_url . '"', '<img class="custom-slider-image" src="' . $image_url . '"', $page_content);
         }
         $output .= '</div>';
         $output .= '<div class="slider-dots"></div>';
         $output .= '</div>';
 
-        // Add inline CSS to hide original images
-        $output .= '<style>.custom-slider-image { display: none; }</style>';
-
-        // Update the post content to hide original images
-        wp_update_post(array(
-            'ID'           => $page_id,
-            'post_content' => $page_content,
-        ));
-
         return $output;
     } else {
         return 'No images found.';
-    
     }
 }
 add_shortcode('custom_slider', 'custom_slider_shortcode');
